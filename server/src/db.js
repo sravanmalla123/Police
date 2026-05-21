@@ -2,11 +2,19 @@ import sqlite3 from 'sqlite3';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import fs from 'node:fs';
 import bcrypt from 'bcryptjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbFile = path.resolve(__dirname, '../data/app.db');
+
+// Ensure database directory exists (essential for cloud platforms like Render where empty git folders are ignored)
+const dbDir = path.dirname(dbFile);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
 const sqlite = sqlite3.verbose();
 const db = new sqlite.Database(dbFile);
 const run = promisify(db.run.bind(db));
