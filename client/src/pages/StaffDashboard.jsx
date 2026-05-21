@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchMyReports, submitReport, setAuthToken, fetchBulletins } from '../services/api.js';
 
-function StaffDashboard({ auth, onLogout }) {
+function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
   const [reports, setReports] = useState([]);
   const [form, setForm] = useState({ area: '', station: '', officerName: auth?.user?.name || '', priority: 'High', description: '', latitude: '', longitude: '' });
   const languages = [
@@ -26,8 +26,13 @@ function StaffDashboard({ auth, onLogout }) {
     if (!container) return;
 
     const map = window.L.map('staff-map').setView([15.9129, 79.7400], 7); // Center of AP
-    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap'
+    
+    const tileUrl = theme === 'light'
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    window.L.tileLayer(tileUrl, {
+      attribution: '&copy; OpenStreetMap &copy; CartoDB'
     }).addTo(map);
 
     setMapInstance(map);
@@ -35,7 +40,7 @@ function StaffDashboard({ auth, onLogout }) {
     return () => {
       map.remove();
     };
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!mapInstance || !window.L) return;
@@ -233,12 +238,36 @@ function StaffDashboard({ auth, onLogout }) {
             <span>Rank: <strong>{auth?.user?.role}</strong> | {auth?.user?.name}</span>
           </div>
           <div>
-            <select id="lang-select" name="lang" value={lang} onChange={e => setLang(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: '#18181b', color: '#ffffff', outline: 'none', fontSize: '0.85rem' }}>
+            <select id="lang-select" name="lang" value={lang} onChange={e => setLang(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-dark)', color: 'var(--text-primary)', outline: 'none', fontSize: '0.85rem' }}>
               {languages.map(l => (
                 <option key={l.code} value={l.code}>{l.label}</option>
               ))}
             </select>
           </div>
+          <button 
+            className="theme-toggle-btn-small" 
+            onClick={toggleTheme} 
+            type="button"
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            {theme === 'light' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            )}
+          </button>
           <button className="button-secondary" onClick={onLogout}>
             Logout
           </button>

@@ -21,7 +21,7 @@ const languages = [
   { code: 'fr', label: 'French' }
 ];
 
-function AdminDashboard({ auth, onLogout }) {
+function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
   const [reports, setReports] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [bulletins, setBulletins] = useState([]);
@@ -131,7 +131,12 @@ function AdminDashboard({ auth, onLogout }) {
     }
 
     const map = window.L.map('map-radar').setView([15.9129, 79.7400], 7); // Center of AP
-    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    
+    const tileUrl = theme === 'light'
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    window.L.tileLayer(tileUrl, {
       attribution: '&copy; OpenStreetMap &copy; CartoDB'
     }).addTo(map);
 
@@ -140,7 +145,7 @@ function AdminDashboard({ auth, onLogout }) {
     return () => {
       map.remove();
     };
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!mapInstance || !window.L) return;
@@ -275,6 +280,30 @@ function AdminDashboard({ auth, onLogout }) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>Dashboard: <strong>Commissioner</strong> | {auth?.user?.name}</span>
           </div>
+          <button 
+            className="theme-toggle-btn-small" 
+            onClick={toggleTheme} 
+            type="button"
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            {theme === 'light' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            )}
+          </button>
           <button className="button-secondary" onClick={onLogout}>
             Logout
           </button>
