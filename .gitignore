@@ -1,7 +1,37 @@
+# Dependencies
 node_modules/
-client/node_modules/
-server/node_modules/
-client/dist/
-server/data/app.db
-.DS_Store
+
+# Environment variables — NEVER COMMIT THESE
 .env
+.env.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build output
+dist/
+build/
+
+# SQLite legacy (no longer used)
+*.db
+*.sqlite
+*.sqlite3
+server/data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Render / Vercel cache
+.vercel/
+.render/

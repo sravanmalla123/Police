@@ -1,14 +1,5 @@
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
-
-dotenv.config();
-const JWT_SECRET = process.env.JWT_SECRET || 'safe-police-secret-2026';
-const JWT_EXPIRES_IN = '8h';
-
-export function signToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
-
-export function verifyToken(token) {
-  return jwt.verify(token, JWT_SECRET);
-}
+// This file is deprecated. 
+// JWT utilities have been moved to: src/utils/jwt.js
+// This file is kept only to satisfy any lingering imports during transition.
+// It will be removed in the next cleanup pass.
+export { signToken, verifyToken, decodeToken } from './utils/jwt.js';

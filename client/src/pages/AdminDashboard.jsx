@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   fetchAdminReports, 
   setAuthToken, 
@@ -6,9 +7,11 @@ import {
   fetchOfficers, 
   assignOfficerToReport, 
   fetchBulletins, 
-  broadcastBulletin 
+  broadcastBulletin,
+  getSseStreamUrl
 } from '../services/api.js';
-
+const zones = ['West', 'East', 'Rural'];
+const divisions = ['West', 'South', 'North', 'Central', 'Nandigama', 'Mylavaram'];
 const priorities = ['All', 'High', 'Medium', 'Low'];
 const statuses = ['All', 'pending', 'in_review', 'resolved'];
 const sortOptions = ['Newest', 'Oldest', 'Priority'];
@@ -22,6 +25,7 @@ const languages = [
 ];
 
 function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [bulletins, setBulletins] = useState([]);
@@ -31,6 +35,9 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
   const [loading, setLoading] = useState(false);
   const [activeFolder, setActiveFolder] = useState('active'); // 'active' or 'resolved'
   const [mapInstance, setMapInstance] = useState(null);
+
+  const hasFitBoundsRef = useRef(false);
+  const [lightbox, setLightbox] = useState(null);
 
   const [bulletinMessage, setBulletinMessage] = useState('');
   const [bulletinSeverity, setBulletinSeverity] = useState('Critical');
@@ -85,9 +92,29 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
     // open SSE connection for real-time synchronization
     let es;
     try {
-      const apiBase = import.meta.env.VITE_API_URL || '/api';
-      es = new EventSource(`${apiBase}/reports/stream?token=${auth?.token || ''}`);
+      const sseUrl = getSseStreamUrl(auth?.token || '');
+      es = new EventSource(sseUrl);
       
+      es.onerror = (err) => {
+        try {
+          const authData = localStorage.getItem('police-portal-auth');
+          if (authData) {
+            const parsed = JSON.parse(authData);
+            const token = parsed?.token;
+            if (token) {
+              const payloadB64 = token.split('.')[1];
+              const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+              if (payload.exp && payload.exp * 1000 < Date.now()) {
+                es.close();
+                console.log('SSE connection closed because the token expired.');
+              }
+            }
+          } else {
+            es.close();
+          }
+        } catch (_) {}
+      };
+
       es.addEventListener('new_report', e => {
         try {
           const r = JSON.parse(e.data);
@@ -101,7 +128,22 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
       });
 
       es.addEventListener('report_updated', e => {
-        loadReports();
+        try {
+          const updated = JSON.parse(e.data);
+          setReports(prev => prev.map(r => {
+            if (r.id === updated.id) {
+              return {
+                ...r,
+                status: updated.status,
+                assigned_officer: updated.assigned_officer,
+                updated_at: updated.updated_at
+              };
+            }
+            return r;
+          }));
+        } catch (err) {
+          // ignore
+        }
       });
 
       es.addEventListener('new_bulletin', e => {
@@ -141,6 +183,7 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
     }).addTo(map);
 
     setMapInstance(map);
+    hasFitBoundsRef.current = false;
 
     return () => {
       map.remove();
@@ -170,6 +213,22 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
           fillOpacity: 0.8
         });
 
+        let photosHtml = '';
+        if (report.incident_photo || report.place_photo) {
+          photosHtml = `
+            <div style="display: flex; gap: 6px; margin: 8px 0;">
+              ${report.incident_photo ? `
+                <div style="position: relative; width: 45px; height: 35px; border-radius: 4px; overflow: hidden; border: 1px solid #ddd;">
+                  <img src="${report.incident_photo}" style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>` : ''}
+              ${report.place_photo ? `
+                <div style="position: relative; width: 45px; height: 35px; border-radius: 4px; overflow: hidden; border: 1px solid #ddd;">
+                  <img src="${report.place_photo}" style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>` : ''}
+            </div>
+          `;
+        }
+
         const popupContent = `
           <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #0a1224; min-width: 180px; padding: 4px;">
             <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 700; color: #0a1224;">${report.area}</h4>
@@ -177,7 +236,9 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
             <div style="font-size: 0.8rem; margin-bottom: 4px; color: #555;"><strong>Station:</strong> ${report.station}</div>
             <div style="font-size: 0.8rem; margin-bottom: 4px; color: #555;"><strong>Priority:</strong> <span style="font-weight: 600; color: ${markerColor};">${report.priority}</span></div>
             <div style="font-size: 0.8rem; margin-bottom: 4.5px; color: #555;"><strong>Assigned:</strong> <span style="font-weight: 600; color: #1e3a8a;">${report.assigned_officer || 'Unassigned'}</span></div>
-            <div style="font-size: 0.8rem; line-height: 1.3; background: #f0f4f8; padding: 6px; border-radius: 6px; border-left: 3px solid ${markerColor}; color: #0a1224;">${report.description}</div>
+            ${photosHtml}
+            <div style="font-size: 0.8rem; line-height: 1.3; background: #f0f4f8; padding: 6px; border-radius: 6px; border-left: 3px solid ${markerColor}; color: #0a1224; margin-bottom: ${report.remarks ? '6px' : '0'};">${report.description}</div>
+            ${report.remarks ? `<div style="font-size: 0.8rem; line-height: 1.3; background: #fffbeb; padding: 6px; border-radius: 6px; border-left: 3px solid #d97706; color: #b45309;"><strong>Remarks:</strong> ${report.remarks}</div>` : ''}
           </div>
         `;
         marker.bindPopup(popupContent);
@@ -186,15 +247,19 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
       }
     });
 
-    if (markers.length > 0) {
+    if (markers.length > 0 && !hasFitBoundsRef.current) {
       const group = new window.L.featureGroup(markers);
       mapInstance.fitBounds(group.getBounds().pad(0.15));
+      hasFitBoundsRef.current = true;
     }
   }, [mapInstance, reports]);
 
   const handleFilter = event => {
     const { name, value } = event.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    if (name === 'lang') {
+      loadReports({ lang: value });
+    }
   };
 
   const applyFilters = () => loadReports();
@@ -202,8 +267,10 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
   const handleStatusUpdate = async (reportId, status) => {
     setLoading(true);
     try {
-      await updateReportStatus(reportId, status);
-      await loadReports();
+      const res = await updateReportStatus(reportId, status);
+      if (res.success && res.report) {
+        setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: res.report.status } : r));
+      }
     } catch (err) {
       setMessage('Unable to update report status.');
     } finally {
@@ -214,8 +281,10 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
   const handleAssignOfficer = async (reportId, officerName) => {
     setLoading(true);
     try {
-      await assignOfficerToReport(reportId, officerName);
-      await loadReports();
+      const res = await assignOfficerToReport(reportId, officerName);
+      if (res.success && res.report) {
+        setReports(prev => prev.map(r => r.id === reportId ? { ...r, assigned_officer: res.report.assigned_officer } : r));
+      }
     } catch (err) {
       setMessage('Unable to assign officer.');
     } finally {
@@ -240,6 +309,20 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
     }
   };
 
+  const handleRecenter = () => {
+    if (!mapInstance || !window.L) return;
+    const markers = [];
+    mapInstance.eachLayer(layer => {
+      if (layer instanceof window.L.CircleMarker) {
+        markers.push(layer);
+      }
+    });
+    if (markers.length > 0) {
+      const group = new window.L.featureGroup(markers);
+      mapInstance.fitBounds(group.getBounds().pad(0.15));
+    }
+  };
+
   const analytics = useMemo(() => {
     const counts = { total: 0, high: 0, pending: 0, areas: {}, activeOfficers: new Set() };
     reports.forEach(report => {
@@ -257,12 +340,24 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
       if (activeFolder === 'resolved') {
         return report.status === 'resolved';
       }
-      return report.status === 'pending' || report.status === 'in_review';
+      if (activeFolder === 'active') {
+        return report.status === 'pending' || report.status === 'in_review';
+      }
+      return true; // 'all' folder
     });
   }, [reports, activeFolder]);
 
   return (
     <div className="page-frame">
+      {lightbox && (
+        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
+          <button className="lightbox-close" onClick={() => setLightbox(null)}>&times;</button>
+          <div className="lightbox-content" onClick={e => e.stopPropagation()}>
+            <img src={lightbox.src} alt={lightbox.title} />
+            <h3 className="lightbox-title">{lightbox.title}</h3>
+          </div>
+        </div>
+      )}
       <div className="page-header">
         <div className="brand-row" style={{ alignItems: 'center' }}>
           <img 
@@ -367,10 +462,24 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
                 Real-time geographic plotting of emergency dispatches and live traffic incidents across Andhra Pradesh.
               </p>
             </div>
-            <span style={{ fontSize: '0.75rem', padding: '4px 10px', background: 'var(--success-green-glow)', color: 'var(--success-green)', borderRadius: '4px', fontWeight: 'bold', border: '1px solid rgba(52,211,153,0.15)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className="live-dot" style={{ width: '6px', height: '6px', background: 'var(--success-green)', borderRadius: '50%', display: 'inline-block' }}></span>
-              LIVE DISPATCH RADAR
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={handleRecenter}
+                style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', height: 'fit-content' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Recenter Map
+              </button>
+              <span style={{ fontSize: '0.75rem', padding: '6px 10px', background: 'var(--success-green-glow)', color: 'var(--success-green)', borderRadius: '4px', fontWeight: 'bold', border: '1px solid rgba(52,211,153,0.15)', display: 'flex', alignItems: 'center', gap: '6px', height: 'fit-content' }}>
+                <span className="live-dot" style={{ width: '6px', height: '6px', background: 'var(--success-green)', borderRadius: '50%', display: 'inline-block' }}></span>
+                LIVE DISPATCH RADAR
+              </span>
+            </div>
           </div>
           <div id="map-radar" style={{ width: '100%', height: '380px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-light)', background: '#18181b' }}></div>
         </div>
@@ -496,98 +605,73 @@ function AdminDashboard({ auth, onLogout, theme, toggleTheme }) {
           </div>
         </div>
 
-        <div className="card">
-          <h2>All Incident Log Entries</h2>
-          
-          <div className="tabs-row" style={{ marginBottom: '16px' }}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h2 style={{ margin: 0, border: 'none', padding: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                All Incident Log Entries
+              </h2>
+              <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Open the dedicated, full-screen portal to view, manage, filter, and assign officers to active or resolved dispatches.
+              </p>
+            </div>
             <button
-              type="button"
-              className={`tab-btn ${activeFolder === 'active' ? 'active' : ''}`}
-              onClick={() => setActiveFolder('active')}
+              onClick={() => navigate('/admin/incidents')}
+              className="button-primary"
+              style={{
+                padding: '12px 28px',
+                fontSize: '0.95rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap',
+                height: 'fit-content'
+              }}
             >
-              Active Folder ({reports.filter(r => r.status !== 'resolved').length})
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeFolder === 'resolved' ? 'active' : ''}`}
-              onClick={() => setActiveFolder('resolved')}
-            >
-              Resolved Folder ({reports.filter(r => r.status === 'resolved').length})
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              Open Incident Logs Portal
             </button>
           </div>
+        </div>
 
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Area / Station</th>
-                  <th>Incident Message</th>
-                  <th>Reporter</th>
-                  <th>Assigned Officer</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredReports.map(report => (
-                  <tr key={report.id}>
-                    <td>
-                      <strong style={{ color: '#ffffff' }}>{report.area}</strong>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px' }}>{report.station}</div>
-                      {report.latitude && report.longitude && (
-                        <div style={{ color: 'var(--accent-gold)', fontSize: '0.75rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
-                          <span>{Number(report.latitude).toFixed(4)}, {Number(report.longitude).toFixed(4)}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ minWidth: '200px', maxWidth: '350px' }}>
-                      {report.translated_description ? report.translated_description : report.description}
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 600 }}>{report.officer_name}</span>
-                    </td>
-                    <td>
-                      <select 
-                        value={report.assigned_officer || ''} 
-                        onChange={e => handleAssignOfficer(report.id, e.target.value)} 
-                        style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: '#18181b', color: '#ffffff', outline: 'none', fontSize: '0.85rem', width: '100%', maxWidth: '170px' }}
-                      >
-                        <option value="">Unassigned</option>
-                        {officers.map(off => (
-                          <option key={off.id} value={off.name}>
-                            {off.name} ({off.role})
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <span className={`priority-badge priority-${(report.priority || 'Medium').toLowerCase()}`}>{report.priority}</span>
-                    </td>
-                    <td>
-                      <span className={`status-pill status-${report.status.replace('_', '-')}`}>{report.status.replace('_', ' ')}</span>
-                    </td>
-                    <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {new Date(report.created_at).toLocaleString()}
-                    </td>
-                    <td>
-                      <select defaultValue={report.status} onChange={e => handleStatusUpdate(report.id, e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: '#18181b', color: '#ffffff', outline: 'none', fontSize: '0.85rem' }}>
-                        <option value="pending">Pending</option>
-                        <option value="in_review">In Review</option>
-                        <option value="resolved">Resolved</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-                {filteredReports.length === 0 && (
-                  <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>No reports available in this folder.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        {/* Staff Login Accounts Management */}
+        <div className="card" style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px', padding: '28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h2 style={{ margin: 0, border: 'none', padding: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                Staff Login Accounts Management
+              </h2>
+              <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Create, remove, and manage login credentials for Circle Inspectors (CI), Sub Inspectors (SI), Constables, and other staff members.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/admin/staff')}
+              className="button-primary"
+              style={{
+                padding: '12px 28px',
+                fontSize: '0.95rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap',
+                height: 'fit-content'
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="20" y1="8" x2="20" y2="14"/>
+                <line x1="23" y1="11" x2="17" y2="11"/>
+              </svg>
+              Manage Staff Logins
+            </button>
           </div>
         </div>
       </div>

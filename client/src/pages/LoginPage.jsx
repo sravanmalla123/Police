@@ -2,12 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, setAuthToken } from '../services/api.js';
 
-const roles = ['CI', 'SI', 'Constable', 'Other'];
+const roles = ['CI', 'SI', 'WSI', 'ASI', 'HC', 'PC', 'Other'];
 
 function LoginPage({ onLogin, theme, toggleTheme }) {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [payload, setPayload] = useState({ loginId: '', password: '', role: roles[0] });
+  const [activeMode, setActiveMode] = useState('SB Control');
+  const isAdmin = activeMode === 'Commissioner';
+  const [payload, setPayload] = useState({ 
+    loginId: '', 
+    password: '', 
+    role: roles[0]
+  });
+  const [selectedRole, setSelectedRole] = useState(roles[0]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +22,7 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
   useEffect(() => {
     setError('');
     setPayload(prev => ({ ...prev, loginId: '', password: '' }));
-  }, [isAdmin]);
+  }, [activeMode]);
 
   const handleChange = event => {
     const { name, value } = event.target;
@@ -38,7 +44,8 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
       const body = {
         loginId: payload.loginId,
         password: payload.password,
-        role: isAdmin ? 'admin' : payload.role
+        accessMode: isAdmin ? 'admin' : activeMode,
+        role: isAdmin ? 'admin' : selectedRole
       };
 
       const resp = await loginUser(body);
@@ -106,18 +113,36 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
             
             <div className="form-field">
               <label>Access Mode</label>
-              <div className="tabs-row">
+              <div className="tabs-row" style={{ gap: '4px' }}>
                 <button
                   type="button"
-                  className={`tab-btn ${!isAdmin ? 'active' : ''}`}
-                  onClick={() => setIsAdmin(false)}
+                  className={`tab-btn ${activeMode === 'SB Control' ? 'active' : ''}`}
+                  onClick={() => setActiveMode('SB Control')}
+                  style={{ padding: '10px 8px', fontSize: '0.82rem' }}
                 >
-                  Police Staff
+                  SB Control
                 </button>
                 <button
                   type="button"
-                  className={`tab-btn ${isAdmin ? 'active' : ''}`}
-                  onClick={() => setIsAdmin(true)}
+                  className={`tab-btn ${activeMode === 'SB Periscope' ? 'active' : ''}`}
+                  onClick={() => setActiveMode('SB Periscope')}
+                  style={{ padding: '10px 8px', fontSize: '0.82rem' }}
+                >
+                  SB Periscope
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${activeMode === 'SB DSR' ? 'active' : ''}`}
+                  onClick={() => setActiveMode('SB DSR')}
+                  style={{ padding: '10px 8px', fontSize: '0.82rem' }}
+                >
+                  SB DSR
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${activeMode === 'Commissioner' ? 'active' : ''}`}
+                  onClick={() => setActiveMode('Commissioner')}
+                  style={{ padding: '10px 8px', fontSize: '0.82rem' }}
                 >
                   Commissioner
                 </button>
@@ -127,13 +152,20 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
             <form onSubmit={handleSubmit}>
               {!isAdmin && (
                 <div className="form-field">
-                  <label htmlFor="role">Role / Rank</label>
-                  <select id="role" name="role" value={payload.role} onChange={handleChange}>
-                    {roles.map(role => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
+                  <label htmlFor="selectedRole">Select Role</label>
+                  <select
+                    id="selectedRole"
+                    value={selectedRole}
+                    onChange={e => setSelectedRole(e.target.value)}
+                    style={{ background: '#121624', border: '1px solid var(--border-light)', color: '#ffffff' }}
+                  >
+                    <option value="CI">CI</option>
+                    <option value="SI">SI</option>
+                    <option value="WSI">WSI</option>
+                    <option value="ASI">ASI</option>
+                    <option value="HC">HC</option>
+                    <option value="PC">PC</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
               )}
@@ -151,7 +183,7 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
               {error && <div className="alert error">{error}</div>}
 
               <button className="button-primary" type="submit" disabled={loading}>
-                {loading ? 'Authenticating…' : isAdmin ? 'Authorize as Commissioner' : 'Authorize as Staff'}
+                {loading ? 'Authenticating…' : `Authorize as ${activeMode}`}
               </button>
             </form>
           </div>

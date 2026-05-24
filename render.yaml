@@ -1,12 +1,39 @@
 services:
   - type: web
-    name: police-backend
+    name: police-portal-backend
     runtime: node
     rootDir: server
     buildCommand: npm install
     startCommand: node src/index.js
+    healthCheckPath: /health
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: PORT
         value: 10000
       - key: JWT_SECRET
         generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: CLIENT_URL
+        sync: false
+      - key: MYSQLHOST
+        sync: false
+      - key: MYSQLPORT
+        value: 3306
+      - key: MYSQLUSER
+        sync: false
+      - key: MYSQLPASSWORD
+        sync: false
+      - key: MYSQLDATABASE
+        value: police_portal
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_PASSWORD_CI
+        sync: false
+      - key: SEED_PASSWORD_SI
+        sync: false
+      - key: SEED_PASSWORD_CONST
+        sync: false
+      - key: SEED_PASSWORD_STAFF
+        sync: false

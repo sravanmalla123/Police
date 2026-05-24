@@ -21,7 +21,8 @@ CREATE TABLE reports (
   status VARCHAR(32) NOT NULL DEFAULT 'pending',
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  sent_to_commissioner INTEGER NOT NULL DEFAULT 1
+  sent_to_commissioner INTEGER NOT NULL DEFAULT 1,
+  remarks TEXT DEFAULT NULL
 );
 
 CREATE INDEX idx_reports_area ON reports(area);
