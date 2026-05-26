@@ -18,10 +18,7 @@ export async function loginUser({ loginId, password, role, accessMode }) {
     const err = new Error('Invalid credentials.'); err.status = 401; throw err;
   }
 
-  if (user.is_admin) {
-    if (role !== 'admin') {
-      const err = new Error('Admin credentials required.'); err.status = 403; throw err;
-    }
+  if (user.is_admin && role === 'admin') {
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       const err = new Error('Invalid credentials.'); err.status = 401; throw err;
@@ -188,7 +185,62 @@ export async function seedUsers() {
     { employee_id: 'g877', name: 'T.Madhava Rao', role: 'HC', password: '9908687759', zone: 'Rural', division: 'Mylavaram', reporting_station: 'Tiruvuru PS', access_modes: 'SB Control,SB Periscope,SB DSR' },
     { employee_id: '14134413', name: 'D.Ramesh', role: 'PC', password: '7013237756', zone: 'Rural', division: 'Mylavaram', reporting_station: 'A.Konduru PS', access_modes: 'SB Control,SB Periscope,SB DSR' },
     { employee_id: '14134067', name: 'S.Satyanarayana', role: 'PC', password: '8919063884', zone: 'Rural', division: 'Mylavaram', reporting_station: 'Gampalagudem PS', access_modes: 'SB Control,SB Periscope,SB DSR' },
-    { employee_id: '14471185', name: 'P.Gopala Krishna', role: 'PC', password: '9494320430', zone: 'Rural', division: 'Mylavaram', reporting_station: 'Reddigudem PS', access_modes: 'SB Control,SB Periscope,SB DSR' }
+    { employee_id: '14471185', name: 'P.Gopala Krishna', role: 'PC', password: '9494320430', zone: 'Rural', division: 'Mylavaram', reporting_station: 'Reddigudem PS', access_modes: 'SB Control,SB Periscope,SB DSR' },
+
+    // Organizations
+    { employee_id: '14113493', name: 'K.Sambasiva Rao', role: 'SI', password: '7901693811', zone: 'Organizations', division: 'Organizations Incharge', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14382714', name: 'G.V.Paideswara Rao', role: 'ASI', password: '9440783002', zone: 'Organizations', division: 'CCS, CMS, CAR, PCR, Mahila, Cyber Crime, CPO', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14126314', name: 'A.Subba Rao', role: 'ASI', password: '9391255326', zone: 'Organizations', division: 'CPI', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14382533', name: 'N.Anji Babu', role: 'ASI', password: '9505675994', zone: 'Organizations', division: 'Mala Mahanadu, SC & ST Organization & Christian Organization', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14383349', name: 'K.Narasimha Rao', role: 'ASI', password: '9492938977', zone: 'Organizations', division: 'Railway, RTC and Electricity, MCV, Miscellaneous', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14382355', name: 'B.Y.Das', role: 'HC', password: '9885370043', zone: 'Organizations', division: 'Outsourcing & Miscellaneous', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14382371', name: 'T.Jojappa', role: 'HC', password: '9948851288', zone: 'Organizations', division: 'CPM', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14383611', name: 'N.V.V.Rao', role: 'HC', password: '9848118347', zone: 'Organizations', division: 'Students & Teachers Organizations', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14383095', name: 'G.Srinivasa Rao', role: 'HC', password: '9949646845', zone: 'Organizations', division: 'NGOs, Volunteers, Congress', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14382706', name: 'M.A.Ahmed', role: 'HC', password: '7680896965', zone: 'Organizations', division: 'CI Cell', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14383422', name: 'D.Srinivasu', role: 'HC', password: '8143777747', zone: 'Organizations', division: 'BJP', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14384063', name: 'V.Trimurthulu', role: 'HC', password: '9394276321', zone: 'Organizations', division: "BC's", reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14384135', name: 'R.Sankara Rao', role: 'HC', password: '8985441200', zone: 'Organizations', division: 'Mahila Wing & Out sourcing Emp', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '11382922', name: 'M.Vijay Kumar', role: 'HC', password: '7812191163', zone: 'Organizations', division: 'CI Cell', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14376320', name: 'Sri K.V.V.Anjaneyulu', role: 'HC', password: '8523020289', zone: 'Organizations', division: 'TDP', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14383134', name: 'B.Satyanarayana', role: 'HC', password: '7330937585', zone: 'Organizations', division: 'YSRCP', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14467748', name: 'B.Deva Narasimha', role: 'PC', password: '7013254203', zone: 'Organizations', division: 'Press Club', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14382590', name: 'T.Jashuva Raju', role: 'HC', password: '9948333888', zone: 'Organizations', division: 'CI Cell', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14384642', name: 'T.Srikanth', role: 'PC', password: '8121297717', zone: 'Organizations', division: 'Airport', reporting_station: null, access_modes: 'SB Control' },
+
+    // SB Office Duties
+    { employee_id: '14383369', name: 'R.V.S.Prasad', role: 'ASI', password: '7013434393', zone: 'Office', division: 'Office Morning Duty', reporting_station: null, access_modes: 'SB Control,SB DSR' },
+    { employee_id: '14383113', name: 'M.V.Sambasiva Rao', role: 'ASI', password: '9440103603', zone: 'Office', division: 'Administrative Officer', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR' },
+    { employee_id: '14383390', name: 'N.V.Ramesh', role: 'HC', password: '9676763232', zone: 'Office', division: 'Computer Operator', reporting_station: null, access_modes: 'SB Control,SB Periscope' },
+    { employee_id: '11382912', name: 'K.V.Prasad', role: 'HC', password: '9316212093', zone: 'Office', division: 'Paper Cutting', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '14383551', name: 'A.E.Nanda Kumar', role: 'HC', password: '7780131137', zone: 'Office', division: 'E Deployment', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '14382549', name: 'S.Brahmaiah', role: 'HC', password: '9346963298', zone: 'Office', division: 'Writer', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '14383558', name: 'Y.Ramesh', role: 'HC', password: '9989677792', zone: 'Office', division: 'Passports', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '14382448', name: 'P.Naga Raju', role: 'HC', password: '9492525237', zone: 'Office', division: 'E Deployment', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '14458579', name: 'B.Krishna Kanth Naik', role: 'PC', password: '8886880908', zone: 'Office', division: 'Computer Operator', reporting_station: null, access_modes: 'SB Control,SB Periscope' },
+    { employee_id: 'g2322', name: 'K.N.Venkateswara Rao', role: 'PC', password: '9603414121', zone: 'Office', division: 'Office Duty', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '14467665', name: 'A.Bujji Babu', role: 'PC', password: '9014914406', zone: 'Office', division: 'A.P.R.O', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: '1000038811', name: 'Ch.Vinay Kumar', role: 'Other', password: '9000330796', zone: 'Office', division: 'Computer Operator', reporting_station: null, access_modes: 'SB Control,SB Periscope' },
+
+    // Commissionerate & IPS Officers
+    { employee_id: 'cp', name: 'S.V.Raja Shekara Babu, IPS', role: 'CP', password: '8008111070', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control', is_admin: true },
+    { employee_id: 'dcp_admin', name: 'K.G.V Saritha, IPS', role: 'DCP', password: '9490619340', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control', is_admin: true },
+    { employee_id: 'dcp_east', name: 'Krishna Kanth Patel, IPS', role: 'DCP', password: '9490619339', zone: 'Commissionerate', division: 'East Zone', reporting_station: null, access_modes: 'SB Control', is_admin: true },
+    { employee_id: 'dcp_rural', name: 'B.Lakshminarayana, IPS', role: 'DCP', password: '9490619342', zone: 'Commissionerate', division: 'Rural Zone', reporting_station: null, access_modes: 'SB Control', is_admin: true },
+    { employee_id: 'adcp_west', name: 'G.Rama Krishna', role: 'ADCP', password: '9490493192', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control', is_admin: true },
+    { employee_id: 'g5040', name: 'N.Bhanu Prakash Reddy', role: 'ACP', password: '9440627031', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR', is_admin: true },
+    { employee_id: '14376515', name: 'Y.Bala Rajaji', role: 'CI', password: '9063702894', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR', is_admin: true },
+    { employee_id: 'g6060', name: 'V.Srinivasa Rao', role: 'CI', password: '9440627032', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR', is_admin: true },
+    { employee_id: 'ci002', name: 'B.Satyanarayana', role: 'CI', password: '9963396080', zone: 'Commissionerate', division: 'NTR Police Commissionerate', reporting_station: null, access_modes: 'SB Control,SB Periscope,SB DSR', is_admin: true },
+
+    // CSB ID Section
+    { employee_id: 'ao001', name: 'Sri Ch.V. Sambasiva Rao', role: 'AO', password: '9885527777', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB Control' },
+    { employee_id: 'dyao001', name: 'Sri P.Subrahmanyam', role: 'Dy.AO', password: '9052959529', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB DSR' },
+    { employee_id: 'dyao002', name: 'Sri M.Srinivasas Rao', role: 'Dy.AO', password: '9390214880', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB DSR' },
+    { employee_id: 'aao001', name: 'Sri K.S.Dada Kalandhar', role: 'AAO', password: '9297007281', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB DSR' },
+    { employee_id: 'aao002', name: 'Sri K.Bala Subrahmanyam', role: 'AAO', password: '9492486754', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB DSR' },
+    { employee_id: 'aao003', name: 'Sri S.V.Siva Kumar', role: 'AAO', password: '9985560656', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB DSR' },
+    { employee_id: 'aao004', name: 'Smt. D. Pavani', role: 'AAO', password: '9154800070', zone: 'ID Section', division: 'CSB ID Section', reporting_station: null, access_modes: 'SB DSR' }
   ];
 
   for (const staff of customStaffAccounts) {
@@ -196,8 +248,8 @@ export async function seedUsers() {
     if (!exists) {
       const hash = await bcrypt.hash(staff.password, SALT_ROUNDS);
       await db.run(
-        'INSERT INTO users (employee_id, name, role, password, zone, division, reporting_station, access_modes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [staff.employee_id, staff.name, staff.role, hash, staff.zone, staff.division, staff.reporting_station, staff.access_modes]
+        'INSERT INTO users (employee_id, name, role, password, zone, division, reporting_station, access_modes, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [staff.employee_id, staff.name, staff.role, hash, staff.zone, staff.division, staff.reporting_station, staff.access_modes, staff.is_admin ? 1 : 0]
       );
       console.log(`✅ Custom staff account seeded: ${staff.employee_id} (${staff.name})`);
     }

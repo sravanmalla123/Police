@@ -25,9 +25,9 @@ export async function createStaff(req, res, next) {
     if (!employeeId || !role || !password) {
       return res.status(400).json({ success: false, message: 'All fields (employeeId, role, password) are required.' });
     }
-    const allowedRoles = ['CI', 'SI', 'WSI', 'ASI', 'HC', 'PC', 'Other'];
+    const allowedRoles = ['CI', 'SI', 'WSI', 'ASI', 'HC', 'PC', 'CP', 'DCP', 'ADCP', 'ACP', 'AO', 'Dy.AO', 'AAO', 'Other'];
     if (!allowedRoles.includes(role)) {
-      return res.status(400).json({ success: false, message: 'Invalid role. Must be CI, SI, WSI, ASI, HC, PC, or Other.' });
+      return res.status(400).json({ success: false, message: 'Invalid role. Must be CI, SI, WSI, ASI, HC, PC, CP, DCP, ADCP, ACP, AO, Dy.AO, AAO, or Other.' });
     }
 
     if (accessModes) {
@@ -50,6 +50,13 @@ export async function createStaff(req, res, next) {
       else if (role === 'ASI') displayName = 'Assistant Sub Inspector';
       else if (role === 'HC') displayName = 'Head Constable';
       else if (role === 'PC') displayName = 'Police Constable';
+      else if (role === 'CP') displayName = 'Commissioner of Police';
+      else if (role === 'DCP') displayName = 'Deputy Commissioner of Police';
+      else if (role === 'ADCP') displayName = 'Additional Deputy Commissioner of Police';
+      else if (role === 'ACP') displayName = 'Assistant Commissioner of Police';
+      else if (role === 'AO') displayName = 'Administrative Officer';
+      else if (role === 'Dy.AO') displayName = 'Deputy Administrative Officer';
+      else if (role === 'AAO') displayName = 'Assistant Administrative Officer';
     }
 
     const accessModesStr = Array.isArray(accessModes) ? accessModes.join(',') : (accessModes || null);
@@ -102,7 +109,7 @@ export async function getMe(req, res, next) {
         id: user.id,
         employee_id: user.employee_id,
         name: user.name,
-        role: user.is_admin ? 'admin' : user.role,
+        role: req.user.role,
         zone: user.zone,
         division: user.division,
         reporting_station: user.reporting_station,

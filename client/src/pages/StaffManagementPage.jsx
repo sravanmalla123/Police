@@ -8,8 +8,8 @@ import {
   setAuthToken 
 } from '../services/api.js';
 
-const zones = ['West', 'East', 'Rural'];
-const divisions = ['West', 'South', 'North', 'Central', 'Nandigama', 'Mylavaram'];
+const zones = ['West', 'East', 'Rural', 'Organizations', 'Office', 'Commissionerate', 'ID Section'];
+const divisions = ['West', 'South', 'North', 'Central', 'Nandigama', 'Mylavaram', 'Organizations Incharge', 'Office Morning Duty', 'Administrative Officer', 'Computer Operator', 'NTR Police Commissionerate', 'CSB ID Section'];
 
 function StaffManagementPage({ auth, onLogin, onLogout, theme, toggleTheme }) {
   const navigate = useNavigate();
@@ -230,6 +230,13 @@ function StaffManagementPage({ auth, onLogin, onLogout, theme, toggleTheme }) {
                     <option value="ASI">ASI</option>
                     <option value="HC">HC</option>
                     <option value="PC">PC</option>
+                    <option value="CP">CP</option>
+                    <option value="DCP">DCP</option>
+                    <option value="ADCP">ADCP</option>
+                    <option value="ACP">ACP</option>
+                    <option value="AO">AO</option>
+                    <option value="Dy.AO">Dy.AO</option>
+                    <option value="AAO">AAO</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>

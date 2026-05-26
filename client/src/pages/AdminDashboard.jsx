@@ -10,8 +10,8 @@ import {
   broadcastBulletin,
   getSseStreamUrl
 } from '../services/api.js';
-const zones = ['West', 'East', 'Rural'];
-const divisions = ['West', 'South', 'North', 'Central', 'Nandigama', 'Mylavaram'];
+const zones = ['West', 'East', 'Rural', 'Organizations', 'Office', 'Commissionerate', 'ID Section'];
+const divisions = ['West', 'South', 'North', 'Central', 'Nandigama', 'Mylavaram', 'Organizations Incharge', 'Office Morning Duty', 'Administrative Officer', 'Computer Operator', 'NTR Police Commissionerate', 'CSB ID Section'];
 const priorities = ['All', 'High', 'Medium', 'Low'];
 const statuses = ['All', 'pending', 'in_review', 'resolved'];
 const sortOptions = ['Newest', 'Oldest', 'Priority'];

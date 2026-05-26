@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, setAuthToken } from '../services/api.js';
 
-const roles = ['CI', 'SI', 'WSI', 'ASI', 'HC', 'PC', 'Other'];
+const roles = ['CI', 'SI', 'WSI', 'ASI', 'HC', 'PC', 'CP', 'DCP', 'ADCP', 'ACP', 'AO', 'Dy.AO', 'AAO', 'Other'];
 
 function LoginPage({ onLogin, theme, toggleTheme }) {
   const navigate = useNavigate();
@@ -165,6 +165,13 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
                     <option value="ASI">ASI</option>
                     <option value="HC">HC</option>
                     <option value="PC">PC</option>
+                    <option value="CP">CP</option>
+                    <option value="DCP">DCP</option>
+                    <option value="ADCP">ADCP</option>
+                    <option value="ACP">ACP</option>
+                    <option value="AO">AO</option>
+                    <option value="Dy.AO">Dy.AO</option>
+                    <option value="AAO">AAO</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
