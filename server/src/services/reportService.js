@@ -88,11 +88,8 @@ export async function getMyReports(userId, accessMode, lang) {
 }
 
 export async function createReport({ userId, area, station, officerName, priority, description, latitude, longitude, incident_photo, place_photo, remarks, accessMode, incident_date }) {
-  if (!isValidImageDataUrl(incident_photo)) {
-    const err = new Error('Invalid incident photo format.'); err.status = 400; throw err;
-  }
-  if (!isValidImageDataUrl(place_photo)) {
-    const err = new Error('Invalid place photo format.'); err.status = 400; throw err;
+  if ((incident_photo && incident_photo !== '') || (place_photo && place_photo !== '')) {
+    const err = new Error('Image uploads are disabled on this server.'); err.status = 400; throw err;
   }
 
   const result = await db.run(
@@ -128,11 +125,11 @@ export async function editReport({
     const err = new Error('Unauthorized to edit this report.'); err.status = 403; throw err;
   }
 
-  if (incident_photo && incident_photo !== existing.incident_photo && !isValidImageDataUrl(incident_photo)) {
-    const err = new Error('Invalid incident photo format.'); err.status = 400; throw err;
-  }
-  if (place_photo && place_photo !== existing.place_photo && !isValidImageDataUrl(place_photo)) {
-    const err = new Error('Invalid place photo format.'); err.status = 400; throw err;
+  if (
+    (incident_photo && incident_photo !== existing.incident_photo) ||
+    (place_photo && place_photo !== existing.place_photo)
+  ) {
+    const err = new Error('Image uploads are disabled on this server.'); err.status = 400; throw err;
   }
 
   let finalStatus = existing.status;

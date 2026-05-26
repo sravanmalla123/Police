@@ -234,25 +234,7 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
   };
 
   const handleFileChange = (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage('File size exceeds the 5MB limit.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setForm(prev => ({
-        ...prev,
-        [type]: reader.result
-      }));
-    };
-    reader.onerror = () => {
-      setMessage('Failed to read the file.');
-    };
-    reader.readAsDataURL(file);
+    setMessage('⚠️ Image upload is disabled to comply with serverless payload size limits.');
   };
 
   const handleRemoveFile = (type) => {
@@ -719,15 +701,15 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
                       <button type="button" className="preview-remove-btn" onClick={() => handleRemoveFile('incident_photo')}>&times;</button>
                     </div>
                   ) : (
-                    <div className="upload-card">
+                    <div className="upload-card" style={{ opacity: 0.65, cursor: 'not-allowed' }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                         <circle cx="8.5" cy="8.5" r="1.5"/>
                         <polyline points="21 15 16 10 5 21"/>
                       </svg>
-                      <span>Upload Incident Photo</span>
-                      <p>Tap to select file</p>
-                      <input type="file" accept="image/*" onChange={e => handleFileChange(e, 'incident_photo')} />
+                      <span>Incident Photo (Disabled)</span>
+                      <p style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>Blocked for Vercel/GitHub</p>
+                      <input type="file" accept="image/*" disabled onChange={e => handleFileChange(e, 'incident_photo')} />
                     </div>
                   )}
 
@@ -738,14 +720,14 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
                       <button type="button" className="preview-remove-btn" onClick={() => handleRemoveFile('place_photo')}>&times;</button>
                     </div>
                   ) : (
-                    <div className="upload-card">
+                    <div className="upload-card" style={{ opacity: 0.65, cursor: 'not-allowed' }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                         <circle cx="12" cy="10" r="3"/>
                       </svg>
-                      <span>Upload Place Photo</span>
-                      <p>Tap to select file</p>
-                      <input type="file" accept="image/*" onChange={e => handleFileChange(e, 'place_photo')} />
+                      <span>Place Photo (Disabled)</span>
+                      <p style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>Blocked for Vercel/GitHub</p>
+                      <input type="file" accept="image/*" disabled onChange={e => handleFileChange(e, 'place_photo')} />
                     </div>
                   )}
                 </div>
