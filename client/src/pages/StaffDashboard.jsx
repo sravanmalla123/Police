@@ -60,6 +60,17 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
 
+  // Mobile App PWA states
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [mobileTab, setMobileTab] = useState('report'); // 'report', 'list', 'alerts', 'profile'
+  const [mapContainerEl, setMapContainerEl] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
@@ -71,11 +82,12 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
   }, []);
 
   useEffect(() => {
-    if (!window.L) return;
-    const container = document.getElementById('staff-map');
-    if (!container) return;
+    if (!window.L || !mapContainerEl) return;
+    
+    // Safety check to avoid double initialization on same element reference
+    if (mapContainerEl._leaflet_id) return;
 
-    const map = window.L.map('staff-map').setView([15.9129, 79.7400], 7); // Center of AP
+    const map = window.L.map(mapContainerEl).setView([15.9129, 79.7400], 7); // Center of AP
     
     const initialTileUrl = theme === 'light'
       ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
@@ -93,7 +105,7 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
       setMapInstance(null);
       mapMarkerRef.current = null;
     };
-  }, []);
+  }, [mapContainerEl]);
 
   useEffect(() => {
     if (tileLayerRef.current) {
@@ -489,6 +501,362 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
     });
   }, [reports, activeFolder]);
 
+  const renderReportForm = () => (
+    <div className="card">
+      <h2 id="incident-form-title">{editingReportId ? `Edit Incident Report #${editingReportId}` : 'File Incident Report'}</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="form-field">
+          <label htmlFor="area">Area / Sector Name</label>
+          <input id="area" name="area" value={form.area} onChange={handleChange} placeholder="e.g. North Zone, Sector 4" required />
+        </div>
+        <div className="form-field">
+          <label htmlFor="station">Reporting Station</label>
+          <input id="station" name="station" value={form.station} onChange={handleChange} placeholder="e.g. Central Station" required />
+        </div>
+        <div className="form-field">
+          <label htmlFor="incident_date">Incident Day & Date</label>
+          <input type="date" id="incident_date" name="incident_date" value={form.incident_date || ''} onChange={handleChange} required />
+        </div>
+        <div className="form-field">
+          <label htmlFor="priority">Incident Priority</label>
+          <select id="priority" name="priority" value={form.priority} onChange={handleChange}>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label htmlFor="remarks">Remarks</label>
+          <textarea id="remarks" name="remarks" value={form.remarks || ''} onChange={handleChange} placeholder="Add any initial remarks or follow-up notes..." />
+        </div>
+        {editingReportId && (
+          <div className="form-field">
+            <label htmlFor="status">Case Status</label>
+            <select id="status" name="status" value={form.status || 'pending'} onChange={handleChange}>
+              <option value="pending">Pending</option>
+              <option value="in_review">In Review</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        )}
+        <div className="form-field">
+          <label>GPS Coordinates (or click map to pin location)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '8px' }}>
+            <input 
+              type="text" 
+              name="latitude" 
+              value={form.latitude} 
+              onChange={handleChange} 
+              placeholder="Latitude" 
+            />
+            <input 
+              type="text" 
+              name="longitude" 
+              value={form.longitude} 
+              onChange={handleChange} 
+              placeholder="Longitude" 
+            />
+            <button 
+              type="button" 
+              className="button-secondary" 
+              onClick={handleGPSCapture} 
+              style={{ padding: '0 12px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+              GPS
+            </button>
+          </div>
+          <div style={{ width: '100%', height: '160px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)', background: '#121316' }} ref={setMapContainerEl}></div>
+        </div>
+        <div className="form-field">
+          <label>Evidence Attachments (Optional)</label>
+          <div className="upload-grid">
+            {form.incident_photo ? (
+              <div className="preview-container">
+                <img src={form.incident_photo} alt="Incident Preview" />
+                <div className="image-label-badge">Incident Photo</div>
+                <button type="button" className="preview-remove-btn" onClick={() => handleRemoveFile('incident_photo')}>&times;</button>
+              </div>
+            ) : (
+              <div className="upload-card" style={{ opacity: 0.65, cursor: 'not-allowed' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>Incident Photo (Disabled)</span>
+                <p style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>Blocked for Vercel/GitHub</p>
+                <input type="file" accept="image/*" disabled onChange={e => handleFileChange(e, 'incident_photo')} />
+              </div>
+            )}
+
+            {form.place_photo ? (
+              <div className="preview-container">
+                <img src={form.place_photo} alt="Place Preview" />
+                <div className="image-label-badge">Place Photo</div>
+                <button type="button" className="preview-remove-btn" onClick={() => handleRemoveFile('place_photo')}>&times;</button>
+              </div>
+            ) : (
+              <div className="upload-card" style={{ opacity: 0.65, cursor: 'not-allowed' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <span>Place Photo (Disabled)</span>
+                <p style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>Blocked for Vercel/GitHub</p>
+                <input type="file" accept="image/*" disabled onChange={e => handleFileChange(e, 'place_photo')} />
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="form-field">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label htmlFor="description" style={{ margin: 0 }}>Incident Description</label>
+            <button
+              type="button"
+              onClick={toggleSpeechRecognition}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                border: isListening ? '1px solid var(--danger-red)' : '1px solid var(--border-light)',
+                background: isListening ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                color: isListening ? 'var(--danger-red)' : 'var(--text-secondary)',
+                transition: 'all 0.2s ease',
+                outline: 'none'
+              }}
+              title={isListening ? 'Stop recording' : 'Dictate description (Voice message to text)'}
+            >
+              <svg 
+                width="12" 
+                height="12" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5"
+                style={{ animation: isListening ? 'pulse-glow 1.5s infinite' : 'none' }}
+              >
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              <span>{isListening ? 'Listening... Speak Now' : 'Voice to Text'}</span>
+            </button>
+          </div>
+          <textarea id="description" name="description" value={form.description} onChange={handleChange} placeholder="Detail the event situation, location and required action..." required />
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="button-primary" type="submit" disabled={loading} style={{ flex: 1 }}>
+            {loading ? 'Processing…' : (editingReportId ? 'Save Changes' : 'Submit Incident Report')}
+          </button>
+          {editingReportId && (
+            <button className="button-secondary" type="button" onClick={handleCancelEdit} style={{ flex: 1 }}>
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+
+  const renderIncidentLogs = () => (
+    <div className="card">
+      <div style={{ position: 'relative', width: '100%', height: '120px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-light)', marginBottom: '16px' }}>
+        <img 
+          src="/ap_police_dashboard.png" 
+          alt="HQ Command Control" 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+        />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(to top, rgba(18,18,20,0.95), rgba(18,18,20,0.2))' }} />
+        <div style={{ position: 'absolute', bottom: '12px', left: '12px' }}>
+          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)', fontWeight: 'bold' }}>HQ Feed</span>
+          <h3 style={{ margin: '2px 0 0 0', fontSize: '1rem', color: '#ffffff' }}>Andhra Pradesh Command Operations</h3>
+        </div>
+      </div>
+
+      <h2>Incident Logs</h2>
+      
+      <div className="tabs-row" style={{ marginBottom: '16px' }}>
+        <button
+          type="button"
+          className={`tab-btn ${activeFolder === 'active' ? 'active' : ''}`}
+          onClick={() => setActiveFolder('active')}
+        >
+          Active ({statusCount.pending + statusCount.in_review})
+        </button>
+        <button
+          type="button"
+          className={`tab-btn ${activeFolder === 'resolved' ? 'active' : ''}`}
+          onClick={() => setActiveFolder('resolved')}
+        >
+          Resolved ({statusCount.resolved})
+        </button>
+      </div>
+
+      <div className="report-grid">
+        {filteredReports.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No reports in this folder.</p>}
+        {filteredReports.map(report => (
+          <div key={report.id} className="report-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 style={{ margin: 0 }}>{report.area}</h3>
+              <span className={`priority-badge priority-${(report.priority || 'Medium').toLowerCase()}`}>{report.priority}</span>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>Uploaded By: <strong style={{ color: 'var(--accent-gold)' }}>{report.uploader_name || report.officer_name || 'Officer'} ({report.uploader_role || 'Staff'})</strong></span>
+            </div>
+
+            {report.incident_date && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Occurred: <strong>{formatDayDate(report.incident_date)}</strong></span>
+              </div>
+            )}
+            
+            <p style={{ minHeight: '40px' }}>{lang !== 'original' ? (report.translations?.[lang] || report.description) : report.description}</p>
+            {report.remarks && (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'rgba(255, 255, 255, 0.03)', borderLeft: '3px solid var(--accent-gold)', padding: '8px 12px', borderRadius: '4px', margin: '10px 0', lineHeight: '1.4' }}>
+                <strong style={{ color: 'var(--accent-gold)' }}>Remarks:</strong> {report.remarks}
+              </div>
+            )}
+            
+            {report.latitude && report.longitude && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span>GPS: <strong>{Number(report.latitude).toFixed(4)}, {Number(report.longitude).toFixed(4)}</strong></span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '10px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>Assigned Dispatch: <strong style={{ color: report.assigned_officer ? '#60a5fa' : 'var(--text-muted)' }}>{report.assigned_officer || 'Pending Assignment'}</strong></span>
+            </div>
+
+            {(report.incident_photo || report.place_photo) && (
+              <div className="report-images-row">
+                {report.incident_photo && (
+                  <div className="report-image-thumb" onClick={() => setLightbox({ src: report.incident_photo, title: `Incident Photo - ${report.area}` })}>
+                    <img src={report.incident_photo} alt="Incident" />
+                    <div className="image-label-badge">Incident</div>
+                  </div>
+                )}
+                {report.place_photo && (
+                  <div className="report-image-thumb" onClick={() => setLightbox({ src: report.place_photo, title: `Place Photo - ${report.area}` })}>
+                    <img src={report.place_photo} alt="Place" />
+                    <div className="image-label-badge">Place</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="report-card-meta">
+              <span className="report-card-date" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {new Date(report.created_at).toLocaleString()}
+              </span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => handleStartEdit(report)}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', cursor: 'pointer' }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => handleDeleteReport(report.id)}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', cursor: 'pointer', borderColor: 'rgba(239, 68, 68, 0.4)', color: 'var(--danger-red)' }}
+                >
+                  Delete
+                </button>
+                <div 
+                  className={`status-pill status-${report.status.replace('_', '-')}`}
+                  style={{ padding: 0, overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: '6px', paddingLeft: '8px', cursor: 'pointer' }}
+                >
+                  <select
+                    value={report.status}
+                    onChange={(e) => handleQuickStatusUpdate(report, e.target.value)}
+                    style={{
+                      padding: '4px 20px 4px 2px',
+                      fontSize: '0.72rem',
+                      fontWeight: '800',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'inherit',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      WebkitAppearance: 'none'
+                    }}
+                  >
+                    <option value="pending">PENDING</option>
+                    <option value="in_review">IN REVIEW</option>
+                    <option value="resolved">RESOLVED</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderBulletins = () => (
+    <div className="card">
+      <h2>Emergency Alerts & Bulletins</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+        {bulletins.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No state bulletins published.</p>}
+        {bulletins.map(b => (
+          <div key={b.id} className={`bulletin-ticker-wrap ${b.severity.toLowerCase()}-alert`} style={{ margin: 0 }}>
+            <span className={`ticker-label ${b.severity.toLowerCase()}`} style={{ marginRight: '10px' }}>{b.severity}</span>
+            <div className="ticker-content" style={{ display: 'block' }}>
+              <div><strong>{b.message}</strong></div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Broadcast Time: {new Date(b.created_at).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderProfile = () => (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <h2>Officer Profile Details</h2>
+      <div style={{ display: 'grid', gap: '12px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+        <div><strong>Full Name:</strong> <span style={{ color: '#ffffff' }}>{auth?.user?.name}</span></div>
+        <div><strong>Rank/Role:</strong> <span style={{ color: 'var(--accent-gold)' }}>{auth?.user?.role}</span></div>
+        <div><strong>Employee ID:</strong> <span><code>{auth?.user?.employee_id || auth?.user?.employeeId || jwtEmployeeId}</code></span></div>
+        <div><strong>Access Mode:</strong> <span>{auth?.user?.accessMode}</span></div>
+        {auth?.user?.reporting_station && <div><strong>Station:</strong> <span>{auth.user.reporting_station}</span></div>}
+        {auth?.user?.zone && <div><strong>Zone:</strong> <span>{auth.user.zone}</span></div>}
+        {auth?.user?.division && <div><strong>Division:</strong> <span>{auth.user.division}</span></div>}
+      </div>
+      
+      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+        <button className="button-secondary" onClick={toggleTheme} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}>
+          Theme: <strong>{theme === 'light' ? 'Light Mode' : 'Dark Mode'}</strong>
+        </button>
+        <button className="button-primary" onClick={onLogout} style={{ padding: '12px', background: 'var(--danger-red)', borderColor: 'var(--danger-red)', color: '#ffffff' }}>
+          Logout Secure Session
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-frame">
       {lightbox && (
@@ -500,482 +868,243 @@ function StaffDashboard({ auth, onLogout, theme, toggleTheme }) {
           </div>
         </div>
       )}
-      <div className="page-header">
-        <div className="brand-row" style={{ alignItems: 'center' }}>
-          <img 
-            src="/ap_police_logo.png" 
-            alt="AP Police Logo" 
-            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.15))' }} 
-          />
-          <div className="brand-copy">
-            <h1>Officer Command Center</h1>
-            <p>Andhra Pradesh State Police Department</p>
-          </div>
-        </div>
-        <div className="top-bar">
-          <div className="top-bar-user">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>
-              Rank: <strong>{auth?.user?.role}</strong> | Access Mode: <strong>{auth?.user?.accessMode}</strong> | {auth?.user?.name}
-              {auth?.user?.reporting_station && ` | Station: ${auth.user.reporting_station}`}
-              {auth?.user?.zone && ` | Zone: ${auth.user.zone}`}
-              {auth?.user?.division && ` | Division: ${auth.user.division}`}
-            </span>
-          </div>
-          <div>
-            <select id="lang-select" name="lang" value={lang} onChange={e => setLang(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-dark)', color: 'var(--text-primary)', outline: 'none', fontSize: '0.85rem' }}>
-              {languages.map(l => (
-                <option key={l.code} value={l.code}>{l.label}</option>
-              ))}
-            </select>
-          </div>
-          <button 
-            className="theme-toggle-btn-small" 
-            onClick={toggleTheme} 
-            type="button"
-            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-          >
-            {theme === 'light' ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/>
-                <line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/>
-                <line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            )}
-          </button>
-          <button className="button-secondary" onClick={onLogout}>
-            Logout
-          </button>
-        </div>
-      </div>
-
-      <div className="page-body">
-        {/* Real-time Emergency Alert Ticker */}
-        {bulletins.length > 0 && (
-          <div className={`bulletin-ticker-wrap ${bulletins[0].severity.toLowerCase()}-alert`}>
-            <span className={`ticker-label ${bulletins[0].severity.toLowerCase()}`}>
-              {bulletins[0].severity}
-            </span>
-            <div className="ticker-content">
-              <strong>{bulletins[0].message}</strong>
-              <span className="ticker-time">
-                — {new Date(bulletins[0].created_at).toLocaleTimeString()}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {message && <div className="alert">{message}</div>}
-
-        {/* Welcome Greeting Banner */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '20px 24px',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-light)',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          marginBottom: '8px'
-        }}>
-          <div>
-            <h2 style={{
-              margin: 0,
-              fontFamily: 'var(--font-heading)',
-              fontSize: '1.45rem',
-              fontWeight: 800,
-              background: theme === 'light' ? 'linear-gradient(to right, #0f172a, #2563eb)' : 'linear-gradient(to right, #ffffff, #d4d4d8)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              Welcome back, {auth?.user?.name || 'Officer'}
-            </h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Authorized Duty Portal — Role: <strong style={{ color: 'var(--text-primary)' }}>{auth?.user?.role || 'Staff'}</strong> (Employee ID: <code>{auth?.user?.employee_id || auth?.user?.employeeId || jwtEmployeeId || 'N/A'}</code>)
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {auth?.user?.accessMode && (
-              <span className="priority-badge priority-low" style={{ background: 'rgba(251, 191, 36, 0.1)', color: 'var(--accent-gold)', border: '1px solid rgba(251, 191, 36, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
-                Mode: {auth.user.accessMode}
-              </span>
-            )}
-            {auth?.user?.reporting_station && (
-              <span className="priority-badge priority-low" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
-                Station: {auth.user.reporting_station}
-              </span>
-            )}
-            {auth?.user?.zone && (
-              <span className="priority-badge priority-low" style={{ background: 'rgba(52, 211, 153, 0.1)', color: 'var(--success-green)', border: '1px solid rgba(52, 211, 153, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
-                {auth.user.zone} Zone
-              </span>
-            )}
-            {auth?.user?.division && (
-              <span className="priority-badge priority-low" style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#60a5fa', border: '1px solid rgba(96, 165, 250, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
-                {auth.user.division} Division
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-grid">
-          <div className="stat-card">
-            <div>
-              <h3>Total Reports</h3>
-              <strong>{reports.length}</strong>
-            </div>
-            <div className="stat-icon-wrapper">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div>
-              <h3>Active Cases</h3>
-              <strong>{statusCount.pending + statusCount.in_review}</strong>
-            </div>
-            <div className="stat-icon-wrapper" style={{ color: 'var(--accent-gold)' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div>
-              <h3>Resolved</h3>
-              <strong>{statusCount.resolved}</strong>
-            </div>
-            <div className="stat-icon-wrapper" style={{ color: 'var(--success-green)' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid-2">
-          <div className="card">
-            <h2 id="incident-form-title">{editingReportId ? `Edit Incident Report #${editingReportId}` : 'File Incident Report'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-field">
-                <label htmlFor="area">Area / Sector Name</label>
-                <input id="area" name="area" value={form.area} onChange={handleChange} placeholder="e.g. North Zone, Sector 4" required />
+      
+      {isMobile ? (
+        /* Mobile Layout */
+        <>
+          <div className="page-header" style={{ position: 'sticky', top: 0, zIndex: 999 }}>
+            <div className="brand-row" style={{ alignItems: 'center', gap: '8px' }}>
+              <img 
+                src="/ap_police_logo.png" 
+                alt="AP Police Logo" 
+                style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'contain' }} 
+              />
+              <div className="brand-copy">
+                <h1 style={{ fontSize: '1rem' }}>Officer Portal</h1>
+                <p style={{ fontSize: '0.65rem' }}>AP Command Center</p>
               </div>
-              <div className="form-field">
-                <label htmlFor="station">Reporting Station</label>
-                <input id="station" name="station" value={form.station} onChange={handleChange} placeholder="e.g. Central Station" required />
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <select 
+                value={lang} 
+                onChange={e => setLang(e.target.value)} 
+                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'var(--bg-dark)', color: 'var(--text-primary)', fontSize: '0.75rem', outline: 'none' }}
+              >
+                {languages.map(l => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="page-body" style={{ padding: '16px' }}>
+            {bulletins.length > 0 && mobileTab !== 'alerts' && (
+              <div className={`bulletin-ticker-wrap ${bulletins[0].severity.toLowerCase()}-alert`} style={{ marginBottom: '12px' }}>
+                <span className={`ticker-label ${bulletins[0].severity.toLowerCase()}`} style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                  {bulletins[0].severity}
+                </span>
+                <div className="ticker-content" style={{ fontSize: '0.8rem' }}>
+                  <strong>{bulletins[0].message}</strong>
+                </div>
               </div>
-              <div className="form-field">
-                <label htmlFor="incident_date">Incident Day & Date</label>
-                <input type="date" id="incident_date" name="incident_date" value={form.incident_date || ''} onChange={handleChange} required />
+            )}
+
+            {message && <div className="alert">{message}</div>}
+
+            {mobileTab === 'report' && renderReportForm()}
+            {mobileTab === 'list' && renderIncidentLogs()}
+            {mobileTab === 'alerts' && renderBulletins()}
+            {mobileTab === 'profile' && renderProfile()}
+          </div>
+
+          <div className="mobile-nav">
+            <button className={`mobile-nav-item ${mobileTab === 'report' ? 'active' : ''}`} onClick={() => setMobileTab('report')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              File Report
+            </button>
+            <button className={`mobile-nav-item ${mobileTab === 'list' ? 'active' : ''}`} onClick={() => setMobileTab('list')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Logs ({reports.length})
+            </button>
+            <button className={`mobile-nav-item ${mobileTab === 'alerts' ? 'active' : ''}`} onClick={() => setMobileTab('alerts')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Alerts
+            </button>
+            <button className={`mobile-nav-item ${mobileTab === 'profile' ? 'active' : ''}`} onClick={() => setMobileTab('profile')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Profile
+            </button>
+          </div>
+        </>
+      ) : (
+        /* Desktop Layout */
+        <>
+          <div className="page-header">
+            <div className="brand-row" style={{ alignItems: 'center' }}>
+              <img 
+                src="/ap_police_logo.png" 
+                alt="AP Police Logo" 
+                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.15))' }} 
+              />
+              <div className="brand-copy">
+                <h1>Officer Command Center</h1>
+                <p>Andhra Pradesh State Police Department</p>
               </div>
-              <div className="form-field">
-                <label htmlFor="priority">Incident Priority</label>
-                <select id="priority" name="priority" value={form.priority} onChange={handleChange}>
-                  <option>High</option>
-                  <option>Medium</option>
-                  <option>Low</option>
+            </div>
+            <div className="top-bar">
+              <div className="top-bar-user">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>
+                  Rank: <strong>{auth?.user?.role}</strong> | Access Mode: <strong>{auth?.user?.accessMode}</strong> | {auth?.user?.name}
+                  {auth?.user?.reporting_station && ` | Station: ${auth.user.reporting_station}`}
+                  {auth?.user?.zone && ` | Zone: ${auth.user.zone}`}
+                  {auth?.user?.division && ` | Division: ${auth.user.division}`}
+                </span>
+              </div>
+              <div>
+                <select id="lang-select" name="lang" value={lang} onChange={e => setLang(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-dark)', color: 'var(--text-primary)', outline: 'none', fontSize: '0.85rem' }}>
+                  {languages.map(l => (
+                    <option key={l.code} value={l.code}>{l.label}</option>
+                  ))}
                 </select>
               </div>
-              <div className="form-field">
-                <label htmlFor="remarks">Remarks</label>
-                <textarea id="remarks" name="remarks" value={form.remarks || ''} onChange={handleChange} placeholder="Add any initial remarks or follow-up notes..." />
-              </div>
-              {editingReportId && (
-                <div className="form-field">
-                  <label htmlFor="status">Case Status</label>
-                  <select id="status" name="status" value={form.status || 'pending'} onChange={handleChange}>
-                    <option value="pending">Pending</option>
-                    <option value="in_review">In Review</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-              )}
-              <div className="form-field">
-                <label>GPS Coordinates (or click map to pin location)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '8px' }}>
-                  <input 
-                    type="text" 
-                    name="latitude" 
-                    value={form.latitude} 
-                    onChange={handleChange} 
-                    placeholder="Latitude" 
-                  />
-                  <input 
-                    type="text" 
-                    name="longitude" 
-                    value={form.longitude} 
-                    onChange={handleChange} 
-                    placeholder="Longitude" 
-                  />
-                  <button 
-                    type="button" 
-                    className="button-secondary" 
-                    onClick={handleGPSCapture} 
-                    style={{ padding: '0 12px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
-                    GPS
-                  </button>
-                </div>
-                <div style={{ width: '100%', height: '160px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)', background: '#121316' }} id="staff-map"></div>
-              </div>
-              <div className="form-field">
-                <label>Evidence Attachments (Optional)</label>
-                <div className="upload-grid">
-                  {form.incident_photo ? (
-                    <div className="preview-container">
-                      <img src={form.incident_photo} alt="Incident Preview" />
-                      <div className="image-label-badge">Incident Photo</div>
-                      <button type="button" className="preview-remove-btn" onClick={() => handleRemoveFile('incident_photo')}>&times;</button>
-                    </div>
-                  ) : (
-                    <div className="upload-card" style={{ opacity: 0.65, cursor: 'not-allowed' }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                      </svg>
-                      <span>Incident Photo (Disabled)</span>
-                      <p style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>Blocked for Vercel/GitHub</p>
-                      <input type="file" accept="image/*" disabled onChange={e => handleFileChange(e, 'incident_photo')} />
-                    </div>
-                  )}
+              <button 
+                className="theme-toggle-btn-small" 
+                onClick={toggleTheme} 
+                type="button"
+                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              >
+                {theme === 'light' ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                )}
+              </button>
+              <button className="button-secondary" onClick={onLogout}>
+                Logout
+              </button>
+            </div>
+          </div>
 
-                  {form.place_photo ? (
-                    <div className="preview-container">
-                      <img src={form.place_photo} alt="Place Preview" />
-                      <div className="image-label-badge">Place Photo</div>
-                      <button type="button" className="preview-remove-btn" onClick={() => handleRemoveFile('place_photo')}>&times;</button>
-                    </div>
-                  ) : (
-                    <div className="upload-card" style={{ opacity: 0.65, cursor: 'not-allowed' }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                        <circle cx="12" cy="10" r="3"/>
-                      </svg>
-                      <span>Place Photo (Disabled)</span>
-                      <p style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>Blocked for Vercel/GitHub</p>
-                      <input type="file" accept="image/*" disabled onChange={e => handleFileChange(e, 'place_photo')} />
-                    </div>
-                  )}
+          <div className="page-body">
+            {bulletins.length > 0 && (
+              <div className={`bulletin-ticker-wrap ${bulletins[0].severity.toLowerCase()}-alert`}>
+                <span className={`ticker-label ${bulletins[0].severity.toLowerCase()}`}>
+                  {bulletins[0].severity}
+                </span>
+                <div className="ticker-content">
+                  <strong>{bulletins[0].message}</strong>
+                  <span className="ticker-time">
+                    — {new Date(bulletins[0].created_at).toLocaleTimeString()}
+                  </span>
                 </div>
               </div>
-              <div className="form-field">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label htmlFor="description" style={{ margin: 0 }}>Incident Description</label>
-                  <button
-                    type="button"
-                    onClick={toggleSpeechRecognition}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      border: isListening ? '1px solid var(--danger-red)' : '1px solid var(--border-light)',
-                      background: isListening ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                      color: isListening ? 'var(--danger-red)' : 'var(--text-secondary)',
-                      transition: 'all 0.2s ease',
-                      outline: 'none'
-                    }}
-                    title={isListening ? 'Stop recording' : 'Dictate description (Voice message to text)'}
-                  >
-                    <svg 
-                      width="12" 
-                      height="12" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2.5"
-                      style={{ animation: isListening ? 'pulse-glow 1.5s infinite' : 'none' }}
-                    >
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                      <line x1="12" y1="19" x2="12" y2="23"/>
-                      <line x1="8" y1="23" x2="16" y2="23"/>
-                    </svg>
-                    <span>{isListening ? 'Listening... Speak Now' : 'Voice to Text'}</span>
-                  </button>
-                </div>
-                <textarea id="description" name="description" value={form.description} onChange={handleChange} placeholder="Detail the event situation, location and required action..." required />
+            )}
+
+            {message && <div className="alert">{message}</div>}
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '20px 24px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-light)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              marginBottom: '8px'
+            }}>
+              <div>
+                <h2 style={{
+                  margin: 0,
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '1.45rem',
+                  fontWeight: 800,
+                  background: theme === 'light' ? 'linear-gradient(to right, #0f172a, #2563eb)' : 'linear-gradient(to right, #ffffff, #d4d4d8)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Welcome back, {auth?.user?.name || 'Officer'}
+                </h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Authorized Duty Portal — Role: <strong style={{ color: 'var(--text-primary)' }}>{auth?.user?.role || 'Staff'}</strong> (Employee ID: <code>{auth?.user?.employee_id || auth?.user?.employeeId || jwtEmployeeId || 'N/A'}</code>)
+                </p>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="button-primary" type="submit" disabled={loading} style={{ flex: 1 }}>
-                  {loading ? 'Processing…' : (editingReportId ? 'Save Changes' : 'Submit Incident Report')}
-                </button>
-                {editingReportId && (
-                  <button className="button-secondary" type="button" onClick={handleCancelEdit} style={{ flex: 1 }}>
-                    Cancel Edit
-                  </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {auth?.user?.accessMode && (
+                  <span className="priority-badge priority-low" style={{ background: 'rgba(251, 191, 36, 0.1)', color: 'var(--accent-gold)', border: '1px solid rgba(251, 191, 36, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
+                    Mode: {auth.user.accessMode}
+                  </span>
+                )}
+                {auth?.user?.reporting_station && (
+                  <span className="priority-badge priority-low" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
+                    Station: {auth.user.reporting_station}
+                  </span>
+                )}
+                {auth?.user?.zone && (
+                  <span className="priority-badge priority-low" style={{ background: 'rgba(52, 211, 153, 0.1)', color: 'var(--success-green)', border: '1px solid rgba(52, 211, 153, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
+                    {auth.user.zone} Zone
+                  </span>
+                )}
+                {auth?.user?.division && (
+                  <span className="priority-badge priority-low" style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#60a5fa', border: '1px solid rgba(96, 165, 250, 0.2)', fontSize: '0.75rem', padding: '4px 10px' }}>
+                    {auth.user.division} Division
+                  </span>
                 )}
               </div>
-            </form>
-          </div>
+            </div>
 
-          <div className="card">
-            <div style={{ position: 'relative', width: '100%', height: '140px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-light)', marginBottom: '16px' }}>
-              <img 
-                src="/ap_police_dashboard.png" 
-                alt="HQ Command Control" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(to top, rgba(18,18,20,0.95), rgba(18,18,20,0.2))' }} />
-              <div style={{ position: 'absolute', bottom: '12px', left: '12px' }}>
-                <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)', fontWeight: 'bold' }}>HQ Feed</span>
-                <h3 style={{ margin: '2px 0 0 0', fontSize: '1rem', color: '#ffffff' }}>Andhra Pradesh Command Operations</h3>
+            <div className="dashboard-grid">
+              <div className="stat-card">
+                <div>
+                  <h3>Total Reports</h3>
+                  <strong>{reports.length}</strong>
+                </div>
+                <div className="stat-icon-wrapper">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div>
+                  <h3>Active Cases</h3>
+                  <strong>{statusCount.pending + statusCount.in_review}</strong>
+                </div>
+                <div className="stat-icon-wrapper" style={{ color: 'var(--accent-gold)' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div>
+                  <h3>Resolved</h3>
+                  <strong>{statusCount.resolved}</strong>
+                </div>
+                <div className="stat-icon-wrapper" style={{ color: 'var(--success-green)' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
               </div>
             </div>
 
-            <h2>Incident Logs</h2>
-            
-            <div className="tabs-row" style={{ marginBottom: '16px' }}>
-              <button
-                type="button"
-                className={`tab-btn ${activeFolder === 'active' ? 'active' : ''}`}
-                onClick={() => setActiveFolder('active')}
-              >
-                Active Folder ({statusCount.pending + statusCount.in_review})
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${activeFolder === 'resolved' ? 'active' : ''}`}
-                onClick={() => setActiveFolder('resolved')}
-              >
-                Resolved Folder ({statusCount.resolved})
-              </button>
-            </div>
-
-            <div className="report-grid">
-              {filteredReports.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No reports in this folder.</p>}
-              {filteredReports.map(report => (
-                <div key={report.id} className="report-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h3 style={{ margin: 0 }}>{report.area}</h3>
-                    <span className={`priority-badge priority-${(report.priority || 'Medium').toLowerCase()}`}>{report.priority}</span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <span>Uploaded By: <strong style={{ color: 'var(--accent-gold)' }}>{report.uploader_name || report.officer_name || 'Officer'} ({report.uploader_role || 'Staff'}{report.uploader_employee_id ? ` - ID: ${report.uploader_employee_id}` : ''})</strong></span>
-                  </div>
-
-                  {report.incident_date && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      <span>Occurred: <strong style={{ color: 'var(--text-primary)' }}>{formatDayDate(report.incident_date)}</strong></span>
-                    </div>
-                  )}
-                  
-                  <p style={{ minHeight: '40px' }}>{lang !== 'original' ? (report.translations?.[lang] || report.description) : report.description}</p>
-                  {report.remarks && (
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'rgba(255, 255, 255, 0.03)', borderLeft: '3px solid var(--accent-gold)', padding: '8px 12px', borderRadius: '4px', margin: '10px 0', lineHeight: '1.4' }}>
-                      <strong style={{ color: 'var(--accent-gold)' }}>Remarks:</strong> {report.remarks}
-                    </div>
-                  )}
-                  
-                  {report.latitude && report.longitude && (
-                    <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
-                      <span>Location GPS: <strong>{Number(report.latitude).toFixed(4)}, {Number(report.longitude).toFixed(4)}</strong></span>
-                    </div>
-                  )}
-
-                  {/* Assigned Officer Display */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '10px' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <span>Assigned Dispatch: <strong style={{ color: report.assigned_officer ? '#60a5fa' : 'var(--text-muted)' }}>{report.assigned_officer || 'Pending Assignment'}</strong></span>
-                  </div>
-
-                  {(report.incident_photo || report.place_photo) && (
-                    <div className="report-images-row">
-                      {report.incident_photo && (
-                        <div className="report-image-thumb" onClick={() => setLightbox({ src: report.incident_photo, title: `Incident Photo - ${report.area}` })}>
-                          <img src={report.incident_photo} alt="Incident" />
-                          <div className="image-label-badge">Incident</div>
-                        </div>
-                      )}
-                      {report.place_photo && (
-                        <div className="report-image-thumb" onClick={() => setLightbox({ src: report.place_photo, title: `Place Photo - ${report.area}` })}>
-                          <img src={report.place_photo} alt="Place" />
-                          <div className="image-label-badge">Place</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="report-card-meta">
-                    <span className="report-card-date" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      {new Date(report.created_at).toLocaleString()}
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => handleStartEdit(report)}
-                        style={{ padding: '4px 10px', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', cursor: 'pointer' }}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => handleDeleteReport(report.id)}
-                        style={{ padding: '4px 10px', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', cursor: 'pointer', borderColor: 'rgba(239, 68, 68, 0.4)', color: 'var(--danger-red)' }}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                        Delete
-                      </button>
-                      <div 
-                        className={`status-pill status-${report.status.replace('_', '-')}`}
-                        style={{ padding: 0, overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: '6px', paddingLeft: '8px', cursor: 'pointer' }}
-                      >
-                        <select
-                          value={report.status}
-                          onChange={(e) => handleQuickStatusUpdate(report, e.target.value)}
-                          style={{
-                            padding: '4px 20px 4px 2px',
-                            fontSize: '0.72rem',
-                            fontWeight: '800',
-                            border: 'none',
-                            background: 'transparent',
-                            color: 'inherit',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            outline: 'none',
-                            cursor: 'pointer',
-                            appearance: 'none',
-                            WebkitAppearance: 'none',
-                            MozAppearance: 'none'
-                          }}
-                        >
-                          <option value="pending" style={{ background: 'var(--bg-dark)', color: 'var(--accent-gold)' }}>PENDING</option>
-                          <option value="in_review" style={{ background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>IN REVIEW</option>
-                          <option value="resolved" style={{ background: 'var(--bg-dark)', color: 'var(--success-green)' }}>RESOLVED</option>
-                        </select>
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', opacity: 0.7, pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"/></svg>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="grid-2">
+              {renderReportForm()}
+              {renderIncidentLogs()}
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
