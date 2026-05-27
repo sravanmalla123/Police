@@ -22,6 +22,11 @@ if (!process.env.VERCEL) {
 
 const isProd = process.env.NODE_ENV === 'production';
 
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'default-fallback-secret-key-change-before-production-1234567890';
+  console.warn('⚠️  JWT_SECRET not set — using default fallback secret.');
+}
+
 // In production, ALL vars are required and the server crashes if any are missing.
 // In development, only JWT_SECRET is required (MySQL vars are optional — SQLite is used).
 const requiredAlways = ['JWT_SECRET'];
@@ -30,13 +35,9 @@ const requiredInProduction = ['MYSQLHOST', 'MYSQLUSER', 'MYSQLPASSWORD', 'MYSQLD
 const missing = requiredAlways.filter((key) => !process.env[key]);
 
 if (missing.length > 0) {
-  if (process.env.VERCEL && missing.includes('JWT_SECRET')) {
-    process.env.JWT_SECRET = 'vercel-default-fallback-secret-key-1234567890';
-  } else {
-    console.error(`\n❌ FATAL: Missing required environment variables: ${missing.join(', ')}`);
-    console.error('   Please copy server/.env.example to server/.env and fill in all values.\n');
-    process.exit(1);
-  }
+  console.error(`\n❌ FATAL: Missing required environment variables: ${missing.join(', ')}`);
+  console.error('   Please copy server/.env.example to server/.env and fill in all values.\n');
+  process.exit(1);
 }
 
 if (isProd) {
