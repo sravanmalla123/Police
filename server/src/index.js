@@ -31,16 +31,41 @@ app.use(helmet({
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 const allowedOrigins = env.clientUrl.split(',').map((s) => s.trim());
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow server-to-server calls (origin is undefined) and allowed origins
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS policy: origin ${origin} is not allowed.`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+
+const corsOptionsDelegate = (req, callback) => {
+  const origin = req.header('Origin');
+  let isAllowed = false;
+
+  if (!origin) {
+    isAllowed = true;
+  } else if (allowedOrigins.includes(origin)) {
+    isAllowed = true;
+  } else {
+    // Dynamic same-origin detection (matches frontend and backend hosted on same domain)
+    try {
+      const originHost = new URL(origin).host;
+      const requestHost = req.get('host');
+      if (originHost === requestHost) {
+        isAllowed = true;
+      }
+    } catch (_) {
+      // Ignore URL parsing errors
+    }
+  }
+
+  if (isAllowed) {
+    callback(null, {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    });
+  } else {
+    callback(null, { origin: false });
+  }
+};
+
+app.use(cors(corsOptionsDelegate));
 
 // ── Compression ───────────────────────────────────────────────────────────────
 app.use(compression());
