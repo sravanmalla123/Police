@@ -30,7 +30,11 @@ app.use(helmet({
 }));
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-const allowedOrigins = env.clientUrl.split(',').map((s) => s.trim());
+const allowedOrigins = [
+  ...env.clientUrl.split(',').map((s) => s.trim()),
+  'https://police-chi-two.vercel.app',
+  'https://police-obj0mou1f-saidinesh2004s-projects.vercel.app'
+];
 
 const corsOptionsDelegate = (req, callback) => {
   const origin = req.header('Origin');
