@@ -1735,4 +1735,39 @@ body.light-theme .broadcast-select {
   body.light-theme .mobile-nav-item.active svg {
     color: #1e40af !important;
   }
+
+  /* 2x2 Grid for access mode tabs on mobile login page */
+  .tabs-row.login-tabs-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin-bottom: 24px !important;
+  }
+  .tabs-row.login-tabs-row .tab-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 12px 8px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .tabs-row.login-tabs-row .tab-btn.active {
+    background: var(--primary-gradient);
+    color: #000000;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+  }
+  body.light-theme .tabs-row.login-tabs-row .tab-btn {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  body.light-theme .tabs-row.login-tabs-row .tab-btn.active {
+    background: var(--primary-gradient);
+    color: #000000;
+  }
 }

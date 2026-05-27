@@ -113,7 +113,7 @@ function LoginPage({ onLogin, theme, toggleTheme }) {
             
             <div className="form-field">
               <label>Access Mode</label>
-              <div className="tabs-row" style={{ gap: '4px' }}>
+              <div className="tabs-row login-tabs-row" style={{ gap: '4px' }}>
                 <button
                   type="button"
                   className={`tab-btn ${activeMode === 'SB Control' ? 'active' : ''}`}
