@@ -62,14 +62,12 @@ if (USE_MYSQL) {
     },
   };
 } else {
-  // ── Development: SQLite via sqlite3 (promisified) ─────────────────────────
-  const sqlite3Module = await import('sqlite3');
-  const { promisify } = await import('node:util');
+  // ── SQLite via built-in node:sqlite (no native compile / GLIBC issues) ───
+  const { DatabaseSync } = await import('node:sqlite');
   const pathModule = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const fs = await import('node:fs');
 
-  const sqlite3 = sqlite3Module.default.verbose();
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = pathModule.default.dirname(__filename);
 
@@ -83,12 +81,8 @@ if (USE_MYSQL) {
     dbFile = ':memory:';
   }
 
-  console.log(`⚠️  Development mode: Using SQLite at ${dbFile}`);
-  const sqliteDb = new sqlite3.Database(dbFile);
-
-  const runRaw = promisify(sqliteDb.run.bind(sqliteDb));
-  const getRaw = promisify(sqliteDb.get.bind(sqliteDb));
-  const allRaw = promisify(sqliteDb.all.bind(sqliteDb));
+  console.log(`⚠️  Using built-in node:sqlite at ${dbFile}`);
+  const sqliteDb = new DatabaseSync(dbFile);
 
   /**
    * Unified db interface — same API shape as the MySQL adapter above.
@@ -120,25 +114,28 @@ if (USE_MYSQL) {
     type: 'sqlite',
 
     async query(sql, params = []) {
-      return allRaw(translateSql(sql), params);
+      const translated = translateSql(sql);
+      const stmt = sqliteDb.prepare(translated);
+      return stmt.all(...params);
     },
 
     async get(sql, params = []) {
-      return getRaw(translateSql(sql), params);
+      const translated = translateSql(sql);
+      const stmt = sqliteDb.prepare(translated);
+      return stmt.get(...params) || null;
     },
 
     async run(sql, params = []) {
-      const context = await new Promise((resolve, reject) => {
-        sqliteDb.run(translateSql(sql), params, function (err) {
-          if (err) reject(err);
-          else resolve({ insertId: this.lastID, affectedRows: this.changes });
-        });
-      });
-      return context;
+      const translated = translateSql(sql);
+      const stmt = sqliteDb.prepare(translated);
+      const res = stmt.run(...params);
+      return { insertId: res.lastInsertRowid, affectedRows: res.changes };
     },
 
     async all(sql, params = []) {
-      return allRaw(translateSql(sql), params);
+      const translated = translateSql(sql);
+      const stmt = sqliteDb.prepare(translated);
+      return stmt.all(...params);
     },
   };
 }
